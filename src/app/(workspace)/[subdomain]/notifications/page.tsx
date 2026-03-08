@@ -13,9 +13,9 @@ interface NotificationRule {
   severities?: string[];
   channels: string[];
   delayMinutes: number;
-  repeatInterval: number;
+  repeatMinutes: number;
   enabled: boolean;
-  escalationPolicy?: string;
+  escalationSteps?: any[];
   createdAt: string;
 }
 
