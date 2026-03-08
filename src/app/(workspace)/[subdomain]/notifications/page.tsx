@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
 import { Plus, Bell, History } from 'lucide-react';
 import { NotificationRuleBuilder } from '@/components/Notifications/NotificationRuleBuilder';
 import { NotificationRulesList } from '@/components/Notifications/NotificationRulesList';
@@ -34,9 +33,6 @@ interface NotificationLog {
 }
 
 export default function NotificationsPage() {
-  const params = useParams();
-  const orgSlug = params.subdomain as string;
-
   const [rules, setRules] = useState<NotificationRule[]>([]);
   const [logs, setLogs] = useState<NotificationLog[]>([]);
   const [users, setUsers] = useState<any[]>([]);

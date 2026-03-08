@@ -92,9 +92,6 @@ const PLANS = [
 ];
 
 export default function BillingPage() {
-  const params = useParams();
-  const orgSlug = params.subdomain as string;
-
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
