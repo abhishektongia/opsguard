@@ -144,7 +144,7 @@ export async function PATCH(
 
     // Create audit log
     const user = await prisma.user.findFirst({
-      where: { email: session.user.email, orgId },
+      where: { email: session.user.email!, orgId },
     });
 
     if (user && status && status !== incident.status) {
@@ -226,7 +226,7 @@ export async function DELETE(
 
     // Create audit log
     const user = await prisma.user.findFirst({
-      where: { email: session.user.email, orgId },
+      where: { email: session.user.email!, orgId },
     });
 
     if (user) {

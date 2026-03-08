@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await prisma.user.findFirst({
-      where: { email: session.user.email, orgId },
+      where: { email: session.user.email!, orgId },
     });
 
     let updatedAlerts;

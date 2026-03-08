@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     // Create audit log
     const user = await prisma.user.findFirst({
-      where: { email: session.user.email, orgId },
+      where: { email: session.user.email!, orgId },
     });
 
     if (user) {
