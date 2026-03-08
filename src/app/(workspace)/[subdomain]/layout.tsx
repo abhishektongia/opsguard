@@ -29,6 +29,10 @@ export default async function WorkspaceLayout({
   }
 
   // Verify user belongs to this org
+  if (!session.user.email) {
+    redirect('/login');
+  }
+
   const user = await prisma.user.findFirst({
     where: {
       email: session.user.email,
