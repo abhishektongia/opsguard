@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
 import { CreditCard, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface Subscription {
