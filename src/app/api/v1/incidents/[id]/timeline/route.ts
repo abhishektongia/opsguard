@@ -58,7 +58,7 @@ export async function POST(
 
     const timeline = Array.isArray(incident.timeline) ? incident.timeline : [];
     const newEntry = {
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
       type: 'update',
       message,
       by: session.user.name || 'Unknown',
