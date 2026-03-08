@@ -1,0 +1,381 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Organizations - Multi-tenant root tables
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  subdomain String   @unique
+  plan      Plan     @default(FREE)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  teams        Team[]
+  alerts       Alert[]
+  incidents    Incident[]
+  schedules    OnCallSchedule[]
+  integrations Integration[]
+  notifications NotificationRule[]
+  notificationLogs NotificationLog[]
+  billing      BillingSubscription?
+  auditLogs    AuditLog[]
+
+  @@index([slug])
+  @@index([subdomain])
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+model BillingSubscription {
+  orgId                 String   @id @unique
+  organization          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  plan                  Plan     @default(FREE)
+  seats                 Int      @default(1)
+  status                String   @default("active")
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// Users
+model User {
+  id              String   @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  email           String
+  name            String
+  passwordHash    String?
+  role            UserRole @default(MEMBER)
+  avatar          String?
+  phone           String?
+  timezone        String?  @default("UTC")
+
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  teamMembers       TeamMember[]
+  alerts            Alert[]
+  assignedAlerts    Alert[] @relation("AssignedTo")
+  incidents         Incident[]
+  assignedIncidents Incident[] @relation("AssignedIncidents")
+  notificationRules NotificationRule[]
+  notificationLogs  NotificationLog[]
+  auditLogs         AuditLog[]
+  rotations         OnCallRotation[]
+  createdTeams      Team[]
+
+  @@unique([orgId, email])
+  @@index([orgId])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// Teams
+model Team {
+  id          String   @id @default(cuid())
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  createdBy   String
+  createdByUser User @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members      TeamMember[]
+  assignedAlerts Alert[] @relation("AssignedTeam")
+  assignedIncidents Incident[] @relation("AssignedTeams")
+  schedule     OnCallSchedule?
+
+  @@unique([orgId, name])
+  @@index([orgId])
+}
+
+model TeamMember {
+  teamId    String
+  team      Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String @default("member")
+  createdAt DateTime @default(now())
+
+  @@id([teamId, userId])
+  @@index([userId])
+}
+
+// Alerts
+model Alert {
+  id              String   @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  title           String
+  description     String?
+  source          String
+  severity        Severity
+  status          AlertStatus @default(OPEN)
+
+  assignedToId    String?
+  assignedTo      User? @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTeamId  String?
+  assignedTeam    Team? @relation("AssignedTeam", fields: [assignedTeamId], references: [id], onDelete: SetNull)
+
+  tags            Json     @default("[]")
+  rawPayload      Json?
+  integrationId   String?
+
+  createdAt       DateTime @default(now())
+  ackedAt         DateTime?
+  resolvedAt      DateTime?
+  updatedAt       DateTime @updatedAt
+
+  notificationLogs NotificationLog[]
+  incidentsLinked  Incident[]
+
+  @@index([orgId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+enum Severity {
+  P1
+  P2
+  P3
+  P4
+  P5
+}
+
+enum AlertStatus {
+  OPEN
+  ACK
+  RESOLVED
+  CLOSED
+}
+
+// Incidents
+model Incident {
+  id              String   @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  title           String
+  description     String?
+  severity        Severity
+  status          IncidentStatus @default(INVESTIGATING)
+
+  linkedAlertIds  String[] @default([])
+  alerts          Alert[]
+
+  responderIds    String[] @default([])
+  responders      User[]
+  teams           Team[] @relation("AssignedTeams")
+
+  timeline        Json     @default("[]")
+  postmortem      String?
+
+  createdAt       DateTime @default(now())
+  resolvedAt      DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([status])
+  @@index([severity])
+}
+
+enum IncidentStatus {
+  INVESTIGATING
+  IDENTIFIED
+  MONITORING
+  RESOLVED
+}
+
+// On-Call Schedules
+model OnCallSchedule {
+  id              String   @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamId          String   @unique
+  team            Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  name            String
+  timezone        String  @default("UTC")
+  rotationType    RotationType @default(WEEKLY)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  rotations       OnCallRotation[]
+
+  @@index([orgId])
+}
+
+enum RotationType {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+model OnCallRotation {
+  id              String   @id @default(cuid())
+  scheduleId      String
+  schedule        OnCallSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  startTime       DateTime
+  endTime         DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([scheduleId])
+  @@index([userId])
+  @@index([startTime])
+}
+
+// Integrations
+model Integration {
+  id              String   @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  type            IntegrationType
+  name            String
+  description     String?
+  config          Json
+  enabled         Boolean  @default(true)
+  webhookUrl      String?  @unique
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, type, name])
+  @@index([orgId])
+}
+
+enum IntegrationType {
+  SLACK
+  MSTEAMS
+  DATADOG
+  GRAFANA
+  PROMETHEUS
+  EMAIL
+  PAGERDUTY
+  JIRA
+  SERVICENOW
+  GITHUB
+  JENKINS
+  CUSTOM
+}
+
+// Notification Rules
+model NotificationRule {
+  id              String   @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  alertSeverity   String   @default("all")
+  channels        Json     @default("{\"email\": true}")
+  delayMinutes    Int      @default(0)
+  repeatInterval  Int?
+  enabled         Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([orgId, userId])
+  @@index([orgId])
+  @@index([userId])
+}
+
+model NotificationLog {
+  id              String   @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  alertId         String
+  alert           Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channel         String
+  status          NotificationStatus @default(SENT)
+  errorMessage    String?
+
+  sentAt          DateTime @default(now())
+  deliveryTimestamp DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([orgId])
+  @@index([alertId])
+  @@index([userId])
+  @@index([sentAt])
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+  BOUNCED
+  DELIVERED
+}
+
+// Audit Logs
+model AuditLog {
+  id              String   @id @default(cuid())
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action          String
+  resourceType    String
+  resourceId      String
+  metadata        Json?
+
+  createdAt       DateTime @default(now())
+
+  @@index([orgId])
+  @@index([resourceType])
+  @@index([createdAt])
+}
+
+// Add RLS enablement comment
+// RLS policies should be enabled on all org-scoped tables:
+// - Organizations (no RLS needed, checked at app level)
+// - Users (org_id check)
+// - Teams, TeamMembers (org_id via team)
+// - Alerts, Incidents (org_id check)
+// - OnCallSchedules, OnCallRotations (org_id check)
+// - Integrations (org_id check)
+// - NotificationRules, NotificationLogs (org_id check)
+// - AuditLogs (org_id check)
+//
+// Enable RLS with: ALTER TABLE [table] ENABLE ROW LEVEL SECURITY;
+// Create policies with: CREATE POLICY ... ON [table] USING (org_id = current_setting('app.org_id'))

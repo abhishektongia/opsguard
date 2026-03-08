@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-foreground;
+}
+
+/* Alert status colors */
+.alert-open {
+  @apply bg-status-open;
+}
+
+.alert-ack {
+  @apply bg-status-ack;
+}
+
+.alert-resolved {
+  @apply bg-status-resolved;
+}
+
+.alert-closed {
+  @apply bg-status-closed;
+}
+
+/* Severity badge animations */
+.severity-p1-pulse {
+  @apply animate-pulse-slow;
+}
