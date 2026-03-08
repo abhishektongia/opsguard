@@ -143,6 +143,8 @@ model Alert {
   severity        Severity
   status          AlertStatus @default(OPEN)
 
+  createdById     String?
+  createdBy       User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   assignedToId    String?
   assignedTo      User? @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   assignedTeamId  String?
@@ -197,6 +199,7 @@ model Incident {
 
   responderIds    String[] @default([])
   responders      User[]
+  assignedUsers   User[]   @relation("AssignedIncidents")
   teams           Team[] @relation("AssignedTeams")
 
   timeline        Json     @default("[]")
