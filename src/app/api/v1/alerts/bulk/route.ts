@@ -74,67 +74,47 @@ export async function POST(request: NextRequest) {
       updatedAlerts = await prisma.alert.updateMany({
         where: { id: { in: alertIds }, orgId },
         data: {
-          status: 'ACKNOWLEDGED',
-          acknowledgedBy: user?.id,
-          acknowledgedAt: new Date(),
+          status: 'ACK',
+          ackedAt: new Date(),
         },
       });
 
       // Broadcast updates
       alertIds.forEach((alertId) => {
-        broadcastAlertUpdated(orgId, alertId, {
-          status: 'ACKNOWLEDGED',
-          acknowledgedBy: user?.id,
-          acknowledgedAt: new Date(),
-        });
+        broadcastAlertUpdated(orgId, alertId, { status: 'ACK' });
       });
     } else if (action === 'resolve') {
       updatedAlerts = await prisma.alert.updateMany({
         where: { id: { in: alertIds }, orgId },
         data: {
           status: 'RESOLVED',
-          resolvedBy: user?.id,
           resolvedAt: new Date(),
         },
       });
 
       // Broadcast updates
       alertIds.forEach((alertId) => {
-        broadcastAlertUpdated(orgId, alertId, {
-          status: 'RESOLVED',
-          resolvedBy: user?.id,
-          resolvedAt: new Date(),
-        });
+        broadcastAlertUpdated(orgId, alertId, { status: 'RESOLVED' });
       });
     } else if (action === 'close') {
       updatedAlerts = await prisma.alert.updateMany({
         where: { id: { in: alertIds }, orgId },
-        data: {
-          status: 'CLOSED',
-          closedAt: new Date(),
-        },
+        data: { status: 'CLOSED' },
       });
 
       // Broadcast updates
       alertIds.forEach((alertId) => {
-        broadcastAlertUpdated(orgId, alertId, {
-          status: 'CLOSED',
-          closedAt: new Date(),
-        });
+        broadcastAlertUpdated(orgId, alertId, { status: 'CLOSED' });
       });
     } else if (action === 'assign' && assignTo) {
       updatedAlerts = await prisma.alert.updateMany({
         where: { id: { in: alertIds }, orgId },
-        data: {
-          assignedTo: assignTo,
-        },
+        data: { assignedToId: assignTo },
       });
 
       // Broadcast updates
       alertIds.forEach((alertId) => {
-        broadcastAlertUpdated(orgId, alertId, {
-          assignedTo,
-        });
+        broadcastAlertUpdated(orgId, alertId, { assignedToId: assignTo });
       });
     } else {
       return NextResponse.json(
